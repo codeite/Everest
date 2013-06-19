@@ -1,13 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
+using System.Threading;
 using Everest.Compression;
 using Everest.Content;
 using Everest.Headers;
 using Everest.Pipeline;
 using Everest.Redirection;
 using Everest.Status;
+using Everest.Timeout;
 using NUnit.Framework;
 using SelfishHttp;
 
@@ -26,6 +29,11 @@ namespace Everest.UnitTests
             _server = new Server(18745);
             _server.OnGet("/foo").RespondWith("foo!");
             _server.OnGet("/foo/bar").RespondWith("foo bar?");
+            _server.OnGet("/timeout/1000").RespondWith(x =>
+            {
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+                return "";
+            });
             _client = new RestClient(BaseAddress);
         }
 
@@ -33,6 +41,22 @@ namespace Everest.UnitTests
         public void TearDown()
         {
             _server.Stop();
+        }
+
+        [Test]
+        public void ShouldTimeout()
+        {
+            Action action = () => _client.Get("/timeout/1000", new TimeoutOption(TimeSpan.FromMilliseconds(250)));
+
+            Assert.Throws<TimeoutException>(() => action());
+        }
+
+        [Test]
+        public void ShouldNotTimeout()
+        {
+            Action action = () => _client.Get("/timeout/1000", new TimeoutOption(TimeSpan.FromSeconds(2)));
+
+            action();
         }
 
         [Test]
@@ -78,8 +102,11 @@ namespace Everest.UnitTests
         }
 
         [Test]
-        public void AppliesAuthorizationHeaderToPermanentRedirects() {
-            _server.OnGet("/redirect").Respond((req, res) => { res.StatusCode = (int)HttpStatusCode.MovedPermanently;
+        public void AppliesAuthorizationHeaderToPermanentRedirects()
+        {
+            _server.OnGet("/redirect").Respond((req, res) =>
+            {
+                res.StatusCode = (int)HttpStatusCode.MovedPermanently;
                 res.Headers["Location"] = "/x";
             });
             _server.OnGet("/x").Respond((req, res) => res.Body = req.Headers["Authorization"]);
@@ -97,7 +124,8 @@ namespace Everest.UnitTests
         }
 
         [Test]
-        public void AppliesOverridingOptionsToRedirects() {
+        public void AppliesOverridingOptionsToRedirects()
+        {
             _server.OnGet("/redirect").RedirectTo("/x");
             _server.OnGet("/x").Respond((req, res) => res.Body = req.Headers["x-foo"]);
             var body = _client.Get("/redirect", new RequestHeader("x-foo", "yippee")).Body;
@@ -263,7 +291,7 @@ namespace Everest.UnitTests
         public void ThrowsWhenExpectedResponseHeaderIsNotSet()
         {
             _server.OnGet("/respond-with-bar").RespondWith("oops, no x header!");
-            var client = new RestClient(BaseAddress, new ExpectResponseHeaders { { "x", "foo" }});
+            var client = new RestClient(BaseAddress, new ExpectResponseHeaders { { "x", "foo" } });
             try
             {
                 client.Get("/respond-with-bar");
@@ -282,7 +310,7 @@ namespace Everest.UnitTests
         public void ThrowsWhenExpectedResponseHeaderHasUnexpectedValue()
         {
             _server.OnGet("/respond-with-bar").Respond((req, res) => res.Headers["x"] = "bar");
-            var client = new RestClient(BaseAddress, new ExpectResponseHeaders { { "x", "foo" }});
+            var client = new RestClient(BaseAddress, new ExpectResponseHeaders { { "x", "foo" } });
             try
             {
                 client.Get("/respond-with-bar");

@@ -66,6 +66,7 @@
     <Compile Include="SystemNetHttp\HttpResponseMessageResponseDetails.cs" />
     <Compile Include="SystemNetHttp\SystemNetHttpClientAdapter.cs" />
     <Compile Include="SystemNetHttp\SystemNetHttpClientAdapterFactory.cs" />
+    <Compile Include="Timeout\TimeoutOption.cs" />
     <Compile Include="XmlExtensions.cs" />
     <Compile Include="Headers\Accept.cs" />
     <Compile Include="Headers\AddCustomRequestHeaders.cs" />

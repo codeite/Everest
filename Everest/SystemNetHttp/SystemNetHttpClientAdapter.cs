@@ -26,12 +26,19 @@ namespace Everest.SystemNetHttp
 
         public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request)
         {
-            var response = _client.SendAsync(request).Result;
-            if (ShouldManuallyRedirect(response))
+            var task = _client.SendAsync(request);
+            
+            return Task.Factory.StartNew(() =>
             {
-                return _client.SendAsync(CreateRedirectRequest(request, response));
-            }
-            return Task.Factory.StartNew(() => response);
+                var response = task.Result;
+                if (ShouldManuallyRedirect(response))
+                {
+                    Task<HttpResponseMessage> sendAsync = _client.SendAsync(CreateRedirectRequest(request, response));
+
+                    return sendAsync.Result;
+                }
+                return response;
+            });
         }
 
         private bool ShouldManuallyRedirect(HttpResponseMessage response)

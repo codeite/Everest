@@ -3,12 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading.Tasks;
 using Everest.Auth;
 using Everest.Content;
 using Everest.Headers;
 using Everest.Pipeline;
 using Everest.Status;
 using Everest.SystemNetHttp;
+using Everest.Timeout;
 
 namespace Everest
 {
@@ -82,7 +84,21 @@ namespace Everest
             HttpResponseMessage response;
             try
             {
-                response = adapter.SendAsync(request).Result;
+                Task<HttpResponseMessage> action = adapter.SendAsync(request);
+
+                var timeout = TimeSpan.MaxValue;
+
+                options.Use<TimeoutOption>(to => timeout = to.Timeout);
+
+                var comleted = action.Wait(timeout);
+                if (comleted)
+                {
+                    response = action.Result;
+                }
+                else
+                {
+                    throw new TimeoutException("The service failed to respond");
+                }
             }
             catch (AggregateException exception)
             {
